@@ -1,4 +1,4 @@
-const { readJSON, writeJSON, getValidCode, send } = require('./_lib');
+const { readJSON, authorize, sendErr, MAX_DEVICES, send } = require('./_lib');
 const fs = require('fs');
 const path = require('path');
 const template = require('../data/template.json');
@@ -8,15 +8,15 @@ try { prompt = fs.readFileSync(path.join(process.cwd(), 'data', 'prompt_inicio.m
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return send(res, 405, { error: 'method' });
   try {
-    const v = await getValidCode((req.body || {}).code);
-    if (!v) return send(res, 401, { error: 'invalid_code' });
+    const b = req.body || {};
+    const v = await authorize(b.code, b.device, true);
+    if (v.err) return sendErr(res, v.err, { max: MAX_DEVICES });
     const [config, classes, exams, tasks] = await Promise.all([
       readJSON('users/' + v.code + '/config.json'),
       readJSON('users/' + v.code + '/classes.json'),
       readJSON('users/' + v.code + '/exams.json'),
       readJSON('users/' + v.code + '/tasks.json'),
     ]);
-    if (!v.rec.firstUse) { v.rec.firstUse = new Date().toISOString(); await writeJSON('codes/' + v.code + '.json', v.rec); }
     send(res, 200, {
       code: v.code,
       config: config || null,

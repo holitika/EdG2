@@ -2,7 +2,7 @@
 'use strict';
 
 /* ---------- Estado global ---------- */
-const LSK='edg-code', LSS='edg-session', LSTAB='edg-tab';
+const LSK='edg-code', LSS='edg-session', LSTAB='edg-tab', LSDEV='edg-device';
 let T=null, CFG=null, CODE=null, PROMPT='';
 let RAMOS,ORDER,SECS,EXAMS,QD,PNUM,PDF,RESERVED,CLASSES,MISSING,CLSLABEL;
 let PLAN=[],PMAP={},QPLAN={},CPLAN={},TOTAL_TASKS=0,PHASES=[],START='',EXAM_DAY='',LAST_STUDY='',NSESS=0;
@@ -30,8 +30,16 @@ function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
 function show(id){['gate','setup','app'].forEach(x=>{$(x).hidden=x!==id;});window.scrollTo({top:0});}
+function deviceId(){
+  let d=lsGet(LSDEV);
+  if(!d||!/^[A-Za-z0-9-]{8,64}$/.test(d)){
+    d=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('d'+Date.now().toString(36)+Math.random().toString(36).slice(2,12));
+    lsSet(LSDEV,d);
+  }
+  return d;
+}
 async function api(path,body){
-  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body,{device:deviceId()}))});
   return r;
 }
 
@@ -153,7 +161,7 @@ async function flush(k){
     try{
       const body={code:CODE}; body[k]=k==='config'?CFG:state[k];
       const r=await api('/api/save',body);
-      if(r.status===401){authLost=true;break;}
+      if(r.status===401||r.status===403){authLost=true;break;}
       if(!r.ok)throw new Error('http '+r.status);
       saveErr=false;
     }catch(e){
@@ -167,7 +175,7 @@ function updateSave(){
   const el=$('saveStatus'); if(!el)return;
   let cls='', txt='';
   if(mode==='loading'){txt='Cargando tu avance…';}
-  else if(authLost){txt='Tu código dejó de ser válido: no se puede guardar';cls='bad';}
+  else if(authLost){txt='Este código no está activo en este dispositivo: no se puede guardar';cls='bad';}
   else if(mode==='offline'){txt='Sin conexión: guardado solo en este dispositivo';cls='saving';}
   else if(saveErr){txt='No se pudo guardar el último cambio';cls='bad';}
   else if([...SAVEKEYS,'config'].some(busy)){txt='Guardando…';cls='saving';}
@@ -557,6 +565,12 @@ async function login(code,auto){
       showGate(auto?'Tu código ya no es válido. Escríbelo de nuevo o pide uno nuevo.':'Ese código no es válido. Revisa que esté bien escrito.');
       return;
     }
+    if(r.status===403){
+      lsDel(LSK); lsDel(LSS);
+      let mx=2; try{const j=await r.json();if(j&&j.max)mx=j.max;}catch(_){}
+      showGate('Este código ya está activo en '+mx+' dispositivos, que es el máximo. Escríbele a quien te lo entregó para liberar uno.');
+      return;
+    }
     if(!r.ok)throw new Error('http '+r.status);
     const d=await r.json();
     CODE=d.code; lsSet(LSK,CODE);
@@ -592,7 +606,7 @@ async function refreshFromCloud(){
   if(mode!=='cloud'||!CODE||[...SAVEKEYS,'config'].some(busy)||editing||openKey)return;
   try{
     const r=await api('/api/session',{code:CODE});
-    if(r.status===401){authLost=true;updateSave();return;}
+    if(r.status===401||r.status===403){authLost=true;updateSave();return;}
     if(!r.ok)return;
     const d=await r.json();
     if([...SAVEKEYS].some(busy))return;

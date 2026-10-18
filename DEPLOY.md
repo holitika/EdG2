@@ -28,3 +28,7 @@ Esta carpeta es el proyecto completo: la web (public/), las funciones de acceso 
 
 - Los datos de cada persona se guardan en el Blob store, en archivos privados con el nombre de su código.
 - Si vas a cobrar, lo más simple es entregar el código por mensaje una vez recibido el pago. Más adelante se puede automatizar con Mercado Pago o Flow.
+
+
+## Límite de dispositivos
+Cada código funciona en 2 dispositivos (variable opcional `MAX_DEVICES`). Si alguien cambia de celular o computador, en /admin.html usa «Liberar dispositivos» en su código.

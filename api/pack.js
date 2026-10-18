@@ -1,12 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const { getValidCode, send } = require('./_lib');
+const { authorize, sendErr, send } = require('./_lib');
 
 module.exports = async (req, res) => {
-  const code = req.method === 'POST' ? (req.body || {}).code : req.query.code;
+  const b = req.method === 'POST' ? (req.body || {}) : req.query;
   try {
-    const v = await getValidCode(code);
-    if (!v) return send(res, 401, { error: 'invalid_code' });
+    const v = await authorize(b.code, b.device, false);
+    if (v.err) return sendErr(res, v.err);
     const file = path.join(process.cwd(), 'data', 'carpeta-estudio.zip');
     const buf = fs.readFileSync(file);
     res.setHeader('Content-Type', 'application/zip');

@@ -32,12 +32,33 @@ async function writeJSON(pathname, obj) {
   });
 }
 
-async function getValidCode(raw) {
+const MAX_DEVICES = Math.max(1, parseInt(process.env.MAX_DEVICES, 10) || 2);
+
+// Valida el código y registra el dispositivo. Devuelve { code, rec } o { err }.
+async function authorize(raw, device, touch) {
   const code = normCode(raw);
-  if (!code) return null;
+  if (!code) return { err: 'invalid_code' };
   const rec = await readJSON('codes/' + code + '.json');
-  if (!rec || rec.active === false) return null;
+  if (!rec || rec.active === false) return { err: 'invalid_code' };
+  const dev = String(device || '');
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(dev)) return { err: 'bad_device' };
+  rec.devices = Array.isArray(rec.devices) ? rec.devices : [];
+  const now = new Date().toISOString();
+  const known = rec.devices.find(x => x.id === dev);
+  if (!known) {
+    if (rec.devices.length >= MAX_DEVICES) return { err: 'device_limit', max: MAX_DEVICES };
+    rec.devices.push({ id: dev, first: now, last: now });
+    rec.firstUse = rec.firstUse || now;
+    await writeJSON('codes/' + code + '.json', rec);
+  } else if (touch && Date.now() - Date.parse(known.last || 0) > 3600 * 1000) {
+    known.last = now;
+    await writeJSON('codes/' + code + '.json', rec);
+  }
   return { code, rec };
+}
+const ERR_STATUS = { invalid_code: 401, device_limit: 403, bad_device: 400 };
+function sendErr(res, err, extra) {
+  send(res, ERR_STATUS[err] || 400, Object.assign({ error: err }, extra || {}));
 }
 
 function safeEqual(a, b) {
@@ -51,4 +72,4 @@ function send(res, status, body) {
   res.status(status).json(body);
 }
 
-module.exports = { get, put, list, readJSON, writeJSON, getValidCode, normCode, newCode, safeEqual, send };
+module.exports = { get, put, list, readJSON, writeJSON, authorize, sendErr, MAX_DEVICES, normCode, newCode, safeEqual, send };

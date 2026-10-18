@@ -1,4 +1,4 @@
-const { writeJSON, getValidCode, send } = require('./_lib');
+const { writeJSON, authorize, sendErr, send } = require('./_lib');
 
 const KEYS = ['classes', 'exams', 'tasks'];
 const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -26,8 +26,8 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return send(res, 405, { error: 'method' });
   try {
     const body = req.body || {};
-    const v = await getValidCode(body.code);
-    if (!v) return send(res, 401, { error: 'invalid_code' });
+    const v = await authorize(body.code, body.device, false);
+    if (v.err) return sendErr(res, v.err);
     const writes = [];
     if (body.config !== undefined) {
       const c = cleanConfig(body.config);

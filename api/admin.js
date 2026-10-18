@@ -1,4 +1,4 @@
-const { list, readJSON, writeJSON, newCode, normCode, safeEqual, send } = require('./_lib');
+const { list, readJSON, writeJSON, newCode, normCode, safeEqual, send, MAX_DEVICES } = require('./_lib');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return send(res, 405, { error: 'method' });
@@ -22,7 +22,9 @@ module.exports = async (req, res) => {
       const rows = await Promise.all(r.blobs.map(async x => {
         const code = x.pathname.replace('codes/', '').replace('.json', '');
         const rec = await readJSON(x.pathname) || {};
-        return { code, active: rec.active !== false, note: rec.note || '', created: rec.created || '', firstUse: rec.firstUse || '' };
+        const devs = Array.isArray(rec.devices) ? rec.devices : [];
+        const lastSeen = devs.reduce((a, d) => (d.last > a ? d.last : a), '');
+        return { code, active: rec.active !== false, note: rec.note || '', created: rec.created || '', firstUse: rec.firstUse || '', devices: devs.length, max: MAX_DEVICES, lastSeen };
       }));
       rows.sort((a, c) => (c.created || '').localeCompare(a.created || ''));
       return send(res, 200, { rows });
@@ -33,6 +35,15 @@ module.exports = async (req, res) => {
       const rec = await readJSON('codes/' + code + '.json');
       if (!rec) return send(res, 404, { error: 'not_found' });
       rec.active = b.action === 'restore';
+      await writeJSON('codes/' + code + '.json', rec);
+      return send(res, 200, { ok: true });
+    }
+    if (b.action === 'reset_devices') {
+      const code = normCode(b.code);
+      if (!code) return send(res, 400, { error: 'bad_code' });
+      const rec = await readJSON('codes/' + code + '.json');
+      if (!rec) return send(res, 404, { error: 'not_found' });
+      rec.devices = [];
       await writeJSON('codes/' + code + '.json', rec);
       return send(res, 200, { ok: true });
     }

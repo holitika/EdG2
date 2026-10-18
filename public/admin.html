@@ -27,7 +27,7 @@ td.c{font-family:var(--font-mono)}
     <div id="msg" role="status"></div>
   </div>
   <div class="card" style="margin-top:14px" id="listCard" hidden>
-    <div class="scroll"><table><thead><tr><th>Código</th><th>Nota</th><th>Creado</th><th>Primer uso</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="scroll"><table><thead><tr><th>Código</th><th>Nota</th><th>Creado</th><th>Primer uso</th><th>Dispositivos</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
   </div>
 </div>
 <script>
@@ -46,7 +46,7 @@ async function call(body){
 async function load(){
   const d=await call({action:'list'});
   $('listCard').hidden=false;
-  $('rows').innerHTML=d.rows.map(x=>'<tr class="'+(x.active?'':'off')+'"><td class="c">'+esc(x.code)+'</td><td>'+esc(x.note)+'</td><td>'+esc((x.created||'').slice(0,10))+'</td><td>'+esc(x.firstUse?x.firstUse.slice(0,10):'Sin usar')+'</td><td><button class="btn ghost sm" data-code="'+esc(x.code)+'" data-a="'+(x.active?'revoke':'restore')+'">'+(x.active?'Desactivar':'Reactivar')+'</button></td></tr>').join('')||'<tr><td colspan="5">Aún no hay códigos.</td></tr>';
+  $('rows').innerHTML=d.rows.map(x=>'<tr class="'+(x.active?'':'off')+'"><td class="c">'+esc(x.code)+'</td><td>'+esc(x.note)+'</td><td>'+esc((x.created||'').slice(0,10))+'</td><td>'+esc(x.firstUse?x.firstUse.slice(0,10):'Sin usar')+'</td><td>'+esc(x.devices+' / '+x.max)+(x.lastSeen?'<br><span style="color:var(--muted);font-size:12px">visto '+esc(x.lastSeen.slice(0,10))+'</span>':'')+'</td><td><button class="btn ghost sm" data-code="'+esc(x.code)+'" data-a="reset_devices">Liberar dispositivos</button> <button class="btn ghost sm" data-code="'+esc(x.code)+'" data-a="'+(x.active?'revoke':'restore')+'">'+(x.active?'Desactivar':'Reactivar')+'</button></td></tr>').join('')||'<tr><td colspan="6">Aún no hay códigos.</td></tr>';
 }
 $('create').onclick=async()=>{
   say('Creando…');
