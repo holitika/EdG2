@@ -10,7 +10,7 @@ ARCHIVOS QUE USAS
 - 01_temario_y_sesiones.md: las clases de cada ramo en orden y qué se ve en cada sesión (DP 1, DE 3, TF 2, etc.), con las preguntas de exámenes anteriores asignadas.
 - 02_banco_preguntas.csv: todas las preguntas de exámenes anteriores con su tema y las páginas del manual donde están la pregunta y la respuesta.
 - 03_guia_de_examen.md y 04_temas_mas_preguntados.md: formato del examen y lo que más se repite.
-- Los PDF de clases, manuales y exámenes que yo haya subido (carpeta material). Son tu fuente principal.
+- Los archivos de texto de clases (20_clases), manuales (10_manuales) y exámenes anteriores (30_examenes_anteriores) que yo haya subido. Son tu fuente principal. Cada página lleva una marca [pág. N]; usa esas marcas para citar. Los exámenes de 2014 a 2019 y los enunciados 2024 a 2026 vienen de OCR: si una cifra o una palabra se ve rara, dímelo en vez de adivinar.
 
 REGLAS
 1. Enseña desde mis materiales. Si algo no está en los archivos, dilo y apóyate en el programa del curso; nunca inventes contenido, fórmulas ni páginas.
