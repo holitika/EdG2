@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "api/pack.js": { "includeFiles": "data/carpeta-estudio.zip" },
+    "api/session.js": { "includeFiles": "data/{template.json,prompt_inicio.md}" }
+  },
+  "headers": [
+    { "source": "/admin.html", "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }] }
+  ]
+}

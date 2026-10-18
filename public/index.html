@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bitácora EdG · Administración</title>
+<meta name="description" content="Plan de estudio, banco de preguntas y seguimiento para el Examen de Grado de Administración.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>html,body{margin:0;background:var(--bg)}</style>
+</head>
+<body>
+
+<!-- Acceso -->
+<section id="gate" class="screen" hidden>
+  <div class="card">
+    <div class="eyebrow">Examen de Grado · Administración</div>
+    <h1>Bitácora EdG</h1>
+    <p>Tu plan de estudio día por día, el banco de preguntas de exámenes anteriores y el seguimiento de tu avance. Entra con el código que recibiste.</p>
+    <form id="gateForm" autocomplete="off">
+      <label class="fl" for="codeIn">Código de acceso</label>
+      <input class="in code" id="codeIn" placeholder="EDG-XXXX-XXXX" inputmode="text" autocapitalize="characters" spellcheck="false" maxlength="14">
+      <div id="gateMsg" role="status"></div>
+      <div class="acts"><button class="btn" id="gateBtn" type="submit">Entrar</button></div>
+    </form>
+  </div>
+</section>
+
+<!-- Configuración del plan -->
+<section id="setup" class="screen" hidden>
+  <div class="card">
+    <div class="eyebrow" id="setupEyebrow">Paso único</div>
+    <h1 id="setupTitle">Arma tu plan</h1>
+    <p id="setupLead">Elige tus fechas y los días en que puedes estudiar. El plan se reparte solo y termina seis días antes del examen.</p>
+    <label class="fl" for="sName">Tu nombre (opcional)</label>
+    <input class="in" id="sName" maxlength="40" placeholder="Para el saludo de la cabecera">
+    <div class="row2">
+      <div><label class="fl" for="sStart">Primer día de estudio</label><input class="in" id="sStart" type="date"></div>
+      <div><label class="fl" for="sExam">Día del examen</label><input class="in" id="sExam" type="date"></div>
+    </div>
+    <label class="fl">Días de la semana en que estudias</label>
+    <div class="wdays" id="sDays" role="group" aria-label="Días de estudio"></div>
+    <label class="fl" for="sRec">Día de recuperación</label>
+    <select class="in" id="sRec"></select>
+    <label class="fl">Pausas (pruebas, viajes, semanas sin estudio)</label>
+    <div id="sBreaks"></div>
+    <button class="btn ghost sm" id="sAddBreak" type="button">Agregar una pausa</button>
+    <div id="sSummary" role="status" class="msg"></div>
+    <div class="acts">
+      <button class="btn" id="sGo" type="button">Generar mi plan</button>
+      <button class="btn ghost" id="sCancel" type="button" hidden>Cancelar</button>
+    </div>
+  </div>
+</section>
+
+<!-- Aplicación -->
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="eyebrow">Examen de Grado · Administración</div>
+      <h1>Bitácora EdG</h1>
+      <div class="count"><b id="cdN">–</b><span id="cdTxt"></span></div>
+      <div class="save" id="saveStatus"><i></i><span>Cargando tu avance…</span></div>
+      <div class="acct"><span class="code" id="acctCode"></span><button class="linkbtn" data-act="settings" id="btnSettings">Ajustes del plan</button><button class="linkbtn" data-act="logout" id="btnLogout">Salir</button></div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Secciones de la bitácora">
+    <button class="tab" role="tab" id="tab-cal" data-act="tab" data-tab="cal" data-fk="tab-cal">Calendario</button>
+    <button class="tab" role="tab" id="tab-ex" data-act="tab" data-tab="ex" data-fk="tab-ex">Exámenes anteriores</button>
+    <button class="tab" role="tab" id="tab-cls" data-act="tab" data-tab="cls" data-fk="tab-cls">Clases</button>
+    <button class="tab" role="tab" id="tab-pack" data-act="tab" data-tab="pack" data-fk="tab-pack">Carpeta de estudio</button>
+  </nav>
+
+  <main>
+    <section id="view-cal" role="tabpanel" aria-labelledby="tab-cal"></section>
+    <section id="view-ex" role="tabpanel" aria-labelledby="tab-ex" hidden></section>
+    <section id="view-cls" role="tabpanel" aria-labelledby="tab-cls" hidden></section>
+    <section id="view-pack" role="tabpanel" aria-labelledby="tab-pack" hidden></section>
+  </main>
+  <footer id="foot"></footer>
+</div>
+<div id="modalRoot"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
