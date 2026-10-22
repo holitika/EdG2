@@ -32,7 +32,7 @@ async function writeJSON(pathname, obj) {
   });
 }
 
-const MAX_DEVICES = Math.max(1, parseInt(process.env.MAX_DEVICES, 10) || 2);
+const MAX_DEVICES = Math.max(1, parseInt(process.env.MAX_DEVICES, 10) || 1);
 
 // Etiqueta general del aparato (sistema + navegador). No guarda IP ni ubicación.
 function uaLabel(req) {

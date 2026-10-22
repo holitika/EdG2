@@ -31,7 +31,7 @@ Esta carpeta es el proyecto completo: la web (public/), las funciones de acceso 
 
 
 ## Límite de dispositivos
-Cada código funciona en 2 dispositivos (variable opcional `MAX_DEVICES`). Si alguien cambia de celular o computador, en /admin.html usa «Liberar dispositivos» en su código.
+Cada código funciona en 1 dispositivo (variable opcional `MAX_DEVICES` para cambiar el límite). Si alguien cambia de celular o computador, en /admin.html usa «Liberar dispositivos» en su código.
 
 ## Carpeta de estudio
 `data/carpeta-estudio.zip` (2 MB) trae el material completo en texto. Debe pesar menos de 4,5 MB, que es el límite de respuesta de una función de Vercel.

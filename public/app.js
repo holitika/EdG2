@@ -568,7 +568,7 @@ async function login(code,auto){
     if(r.status===403){
       lsDel(LSK); lsDel(LSS);
       let mx=2; try{const j=await r.json();if(j&&j.max)mx=j.max;}catch(_){}
-      showGate('Este código ya está activo en '+mx+' dispositivos, que es el máximo. Escríbele a quien te lo entregó para liberar uno.');
+      showGate(mx===1?'Este código ya está activo en otro dispositivo y solo permite uno. Escríbele a quien te lo entregó para cambiarlo.':'Este código ya está activo en '+mx+' dispositivos, que es el máximo. Escríbele a quien te lo entregó para liberar uno.');
       return;
     }
     if(!r.ok)throw new Error('http '+r.status);
