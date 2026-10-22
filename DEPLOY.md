@@ -35,3 +35,6 @@ Cada código funciona en 2 dispositivos (variable opcional `MAX_DEVICES`). Si al
 
 ## Carpeta de estudio
 `data/carpeta-estudio.zip` (2 MB) trae el material completo en texto. Debe pesar menos de 4,5 MB, que es el límite de respuesta de una función de Vercel.
+
+## Señales de uso compartido
+En /admin.html cada código muestra el tipo de aparato (por ejemplo «iPhone · Safari»), cuántos intentos fueron bloqueados por el límite, cuántas veces se liberó y cuántas veces se descargó el material. No se guarda IP ni ubicación.

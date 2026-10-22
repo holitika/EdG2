@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return send(res, 405, { error: 'method' });
   try {
     const b = req.body || {};
-    const v = await authorize(b.code, b.device, true);
+    const v = await authorize(b.code, b.device, { touch: true, req, countBlock: true });
     if (v.err) return sendErr(res, v.err, { max: MAX_DEVICES });
     const [config, classes, exams, tasks] = await Promise.all([
       readJSON('users/' + v.code + '/config.json'),

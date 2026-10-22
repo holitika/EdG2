@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return send(res, 405, { error: 'method' });
   try {
     const body = req.body || {};
-    const v = await authorize(body.code, body.device, false);
+    const v = await authorize(body.code, body.device, {});
     if (v.err) return sendErr(res, v.err);
     const writes = [];
     if (body.config !== undefined) {

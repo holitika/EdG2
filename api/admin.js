@@ -24,7 +24,14 @@ module.exports = async (req, res) => {
         const rec = await readJSON(x.pathname) || {};
         const devs = Array.isArray(rec.devices) ? rec.devices : [];
         const lastSeen = devs.reduce((a, d) => (d.last > a ? d.last : a), '');
-        return { code, active: rec.active !== false, note: rec.note || '', created: rec.created || '', firstUse: rec.firstUse || '', devices: devs.length, max: MAX_DEVICES, lastSeen };
+        return {
+          code, active: rec.active !== false, note: rec.note || '', created: rec.created || '', firstUse: rec.firstUse || '',
+          devices: devs.length, max: MAX_DEVICES, lastSeen,
+          devList: devs.map(d => ({ id: String(d.id).slice(0, 6), label: d.label || '?', first: d.first || '', last: d.last || '' })),
+          blocked: rec.blocked || 0, blockedLog: Array.isArray(rec.blockedLog) ? rec.blockedLog : [],
+          resets: rec.resets || 0, lastReset: rec.lastReset || '',
+          downloads: rec.downloads || 0, downloadLog: Array.isArray(rec.downloadLog) ? rec.downloadLog : [],
+        };
       }));
       rows.sort((a, c) => (c.created || '').localeCompare(a.created || ''));
       return send(res, 200, { rows });
@@ -44,6 +51,8 @@ module.exports = async (req, res) => {
       const rec = await readJSON('codes/' + code + '.json');
       if (!rec) return send(res, 404, { error: 'not_found' });
       rec.devices = [];
+      rec.resets = (rec.resets || 0) + 1;
+      rec.lastReset = new Date().toISOString();
       await writeJSON('codes/' + code + '.json', rec);
       return send(res, 200, { ok: true });
     }
