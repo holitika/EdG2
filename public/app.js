@@ -48,11 +48,12 @@ function normCfg(c){
   const days=(Array.isArray(c.days)&&c.days.length?c.days:[1,2,3,4,5]).map(Number);
   let rec=c.recovery; rec=(rec===null||rec===undefined||rec==='')?null:Number(rec);
   if(rec!==null&&days.includes(rec))rec=null;
-  return {start:c.start,exam:c.exam,days:[...new Set(days)].sort((a,b)=>a-b),breaks:(c.breaks||[]).filter(b=>b&&b.from&&b.to),recovery:rec,name:c.name||''};
+  let lo=(c.lastOff===undefined||c.lastOff===null||c.lastOff==='')?6:Number(c.lastOff); if(!Number.isInteger(lo)||lo<0||lo>6)lo=6;
+  return {start:c.start,exam:c.exam,days:[...new Set(days)].sort((a,b)=>a-b),breaks:(c.breaks||[]).filter(b=>b&&b.from&&b.to),recovery:rec,name:c.name||'',lastOff:lo};
 }
 function inBreak(cfg,s){return cfg.breaks.find(b=>s>=b.from&&s<=b.to);}
 function availDays(cfg){
-  const set=new Set(cfg.days), out=[], last=fk(addD(pd(cfg.exam),-6));
+  const set=new Set(cfg.days), out=[], last=fk(addD(pd(cfg.exam),-cfg.lastOff));
   for(let d=pd(cfg.start);fk(d)<=last;d=addD(d,1)){const s=fk(d);if(set.has(d.getDay())&&!inBreak(cfg,s))out.push(s);}
   return out;
 }
@@ -83,13 +84,70 @@ function compress(days,target){
   }
   return true;
 }
+/* Plan reducido: cuando quedan menos de 43 días de estudio se arma un plan más corto, que prioriza
+   las sesiones con más preguntas de examen (repartidas por igual entre los 6 ramos), algunos simulacros,
+   práctica por sección y un repaso final. Reutiliza las tareas del plan completo, así el avance se conserva. */
+const MIN_DAYS=5;
+function reducedPlan(n){
+  const all=cloneDays();
+  const sims=n<=11?1:n<=17?2:n<=24?3:n<=31?4:n<=37?5:6;
+  const fin=n<=8?1:n<=14?2:n<=21?3:n<=29?4:5;
+  const prac=Math.max(0,Math.min(8,Math.floor((n-19)/4)));
+  const studyDays=n-sims-fin-prac;
+  // unidades de sesión: una clase con sus preguntas
+  const units=[]; let cur=null;
+  all.filter(d=>d.p===1).forEach(d=>d.tasks.forEach(t=>{
+    if(t.k==='clase'){cur={code:t.code,r:t.r,tasks:[t],h:1.5};units.push(cur);}
+    else if(cur)cur.tasks.push(t);
+  }));
+  const cap=Math.min(units.length,studyDays*4);
+  const byR={}; units.forEach(u=>{const q=((T.SESS[u.code]||{}).q||[]).length;(byR[u.r]=byR[u.r]||[]).push({u,q});});
+  Object.values(byR).forEach(a=>a.sort((x,y)=>y.q-x.q||units.indexOf(x.u)-units.indexOf(y.u)));
+  const chosen=new Set(); let go=true;
+  while(chosen.size<cap&&go){go=false;for(const r of ORDER){const nx=(byR[r]||[]).shift();if(nx&&chosen.size<cap){chosen.add(nx.u);go=true;}}}
+  const pick=units.filter(u=>chosen.has(u));
+  const days=[]; const per=pick.length/studyDays;
+  let k=0;
+  for(let i=0;i<studyDays;i++){
+    const end=Math.round((i+1)*per), grp=pick.slice(k,end); k=end;
+    if(!grp.length)continue;
+    days.push({i:all[0].i,p:1,h:grp.length*1.5,tasks:grp.flatMap(u=>u.tasks)});
+  }
+  // simulacros (los más recientes) y práctica, intercalados
+  const simDays=[42,44,47,49,52,54].slice(-sims).map((i,j)=>{
+    const d=all[i]; return {i:d.i,p:3,h:d.h,tasks:d.tasks.map(t=>t.k==='simulacro'?Object.assign({},t,{n:j+1}):t)};
+  });
+  const pracDays=all.slice(34,42).slice(0,prac);
+  const mid=[]; let pi=0,si=0;
+  while(pi<pracDays.length||si<simDays.length){
+    if(pi<pracDays.length)mid.push(pracDays[pi++]);
+    if(si<simDays.length)mid.push(simDays[si++]);
+  }
+  // repaso final
+  const F={57:all[57],58:all[58],59:all[59],60:all[60],61:all[61]};
+  let finals;
+  if(fin===1)finals=[{i:57,p:4,h:F[57].h+F[61].h,tasks:[...F[57].tasks,...F[61].tasks]}];
+  else finals=[...[57,59,58,60].slice(0,fin-1).sort((a,b)=>a-b).map(i=>F[i]),F[61]];
+  return {days:[...days,...mid,...finals],sessions:pick.length,sims,totalSessions:units.length};
+}
 function buildPlan(cfg){
   const avail=availDays(cfg);
   const days=cloneDays();
   const total=days.length;
-  if(days.length>avail.length&&!compress(days,avail.length)){
-    const probe=cloneDays(); compress(probe,0);
-    return {ok:false,avail:avail.length,need:probe.length,total};
+  if(avail.length<62){
+    const probe=cloneDays();
+    if(compress(probe,avail.length)){
+      const p1=probe.filter(d=>d.p===1), rest=probe.filter(d=>d.p!==1), res=[];
+      p1.forEach((d,i)=>res.push(Object.assign({},d,{date:avail[i]})));
+      const tail=avail.slice(avail.length-rest.length);
+      rest.forEach((d,i)=>res.push(Object.assign({},d,{date:tail[i]})));
+      res.sort((a,b)=>a.date<b.date?-1:1);
+      return {ok:true,plan:res,avail:avail.length,total,merged:total-probe.length,slack:avail.length-probe.length};
+    }
+    if(avail.length<MIN_DAYS)return {ok:false,avail:avail.length,need:MIN_DAYS,total};
+    const rp=reducedPlan(avail.length);
+    const res=rp.days.map((d,i)=>Object.assign({},d,{date:avail[i]}));
+    return {ok:true,plan:res,avail:avail.length,total,merged:0,slack:0,reduced:true,sessions:rp.sessions,totalSessions:rp.totalSessions,sims:rp.sims};
   }
   const p1=days.filter(d=>d.p===1), rest=days.filter(d=>d.p!==1);
   const res=[];
@@ -97,7 +155,7 @@ function buildPlan(cfg){
   const tail=avail.slice(avail.length-rest.length);
   rest.forEach((d,i)=>res.push(Object.assign({},d,{date:tail[i]})));
   res.sort((a,b)=>a.date<b.date?-1:1);
-  return {ok:true,plan:res,avail:avail.length,total,merged:total-days.length,slack:avail.length-days.length};
+  return {ok:true,plan:res,avail:avail.length,total,merged:0,slack:avail.length-days.length};
 }
 
 /* ---------- Aplicar configuración ---------- */
@@ -106,7 +164,7 @@ function applyConfig(cfg){
   const r=buildPlan(CFG);
   if(!r.ok)return r;
   PLAN=r.plan; PMAP={}; QPLAN={}; CPLAN={}; TOTAL_TASKS=0; NSESS=0;
-  START=CFG.start; EXAM_DAY=CFG.exam; LAST_STUDY=fk(addD(pd(CFG.exam),-6));
+  START=CFG.start; EXAM_DAY=CFG.exam; LAST_STUDY=fk(addD(pd(CFG.exam),-CFG.lastOff));
   PLAN.forEach(day=>{
     PMAP[day.date]=day;
     day.tasks.forEach(t=>{
@@ -127,7 +185,7 @@ function applyConfig(cfg){
     1:NSESS+' sesiones, cada ramo en el orden de su temario. En cada sesión estudias los temas que indica el plan con tu IA y la carpeta de estudio, y resuelves las preguntas de exámenes anteriores asignadas. Para empezar, pídele a tu IA, por ejemplo: «Sesión DE 1». '+recTxt,
     2:'Un examen completo para ver dónde estás y después secciones con cronómetro: 2 preguntas, 30 minutos y 2 carillas cada una, y corrección con la pauta. Son días intensos de 6 a 7 horas: bloques entre secciones y un repaso intensivo de cada ramo.',
     3:nSim+' exámenes completos en 3 horas: una sección por hora y calculadora no programable, con corrección el mismo día. Una sección cuenta como aprobada solo si pasan sus dos preguntas. Los otros días: refuerzo de la sección más débil y más práctica.',
-    4:'Sin preguntas nuevas: repaso de errores, fórmulas y conceptos clave. Los últimos 5 días antes del examen no estudias.'
+    4:'Sin preguntas nuevas: repaso de errores, fórmulas y conceptos clave. '+restTxt(CFG.lastOff)
   };
   const names={1:'Sesiones de estudio',2:'Práctica por sección',3:'Simulacros',4:'Repaso final'};
   PHASES=ps.map((n,i)=>{
@@ -213,7 +271,7 @@ function renderHeader(){
     stat('Clases revisadas',`${clsDone}<small> / ${clsTot}</small>`,Math.round(100*clsDone/clsTot))+
     stat('Preguntas resueltas',`${res}<small> / ${qTot}</small>`,Math.round(100*res/qTot),res?`${Math.round(100*pass/res)} % con pase`:'Aún sin resolver')+
     `<div class="stat ${late?'warnb':''}"><div class="k">Tareas atrasadas</div><div class="v">${late}</div><div class="k">${late?'De días que ya pasaron':'Vas al día'}</div></div>`;
-  $('foot').textContent=`Plan del ${short(START)} al ${short(LAST_STUDY)}: ${NSESS} sesiones de estudio, práctica intensiva por sección y ${PLAN.reduce((a,d)=>a+d.tasks.filter(t=>t.k==='simulacro').length,0)} simulacros, con ${CFG.recovery!==null?'el '+DOW[CFG.recovery]+' para recuperar':'tu margen para recuperar'}.`;
+  $('foot').textContent=`Plan del ${short(START)} al ${short(LAST_STUDY)}: ${NSESS} sesiones de estudio, ${PLAN.some(d=>d.p===2)?'práctica intensiva por sección y ':''}${(n=>n+(n===1?' simulacro':' simulacros'))(PLAN.reduce((a,d)=>a+d.tasks.filter(t=>t.k==='simulacro').length,0))}, con ${CFG.recovery!==null?'el '+DOW[CFG.recovery]+' para recuperar':'tu margen para recuperar'}.`;
 }
 function stat(k,v,p,sub){return `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="bar"><i style="width:${Math.min(100,p)}%"></i></div>${sub?`<div class="k" style="margin-top:4px">${sub}</div>`:''}</div>`;}
 
@@ -486,17 +544,21 @@ function scheduleRender(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;ren
 
 /* ---------- Configuración del plan ---------- */
 let draft=null;
+const OFFS=[[0,'El mismo día del examen'],[1,'El día antes del examen'],[2,'Dos días antes (descansas el día anterior)'],[3,'Tres días antes (descansas 2 días)'],[4,'Cuatro días antes (descansas 3 días)'],[5,'Cinco días antes (descansas 4 días)'],[6,'Seis días antes (descansas 5 días)']];
+function restTxt(o){return o===0?'Estudias hasta el mismo día del examen.':o===1?'Estudias hasta el día antes del examen.':o===2?'Descansas el día antes del examen.':'Descansas los '+(o-1)+' días antes del examen.';}
+function untilTxt(last,o){return 'Estudias hasta el '+longD(last)+(o===0?', el mismo día del examen.':o===1?', el día antes del examen.':'. '+restTxt(o));}
 function defaultDraft(){
   const t=todayKey();
-  return {name:'',start:t<'2026-10-19'?'2026-10-19':t,exam:'2027-01-21',days:[1,2,3,4,5],recovery:0,breaks:[]};
+  return {name:'',start:t<'2026-10-19'?'2026-10-19':t,exam:'2027-01-21',days:[1,2,3,4,5],recovery:0,breaks:[],lastOff:2};
 }
 function openSetup(first){
   editing=!first;
   draft=first?defaultDraft():JSON.parse(JSON.stringify(CFG));
   if(draft.recovery===undefined)draft.recovery=null;
+  if(draft.lastOff===undefined||draft.lastOff===null)draft.lastOff=6;
   $('setupEyebrow').textContent=first?'Paso único':'Ajustes del plan';
   $('setupTitle').textContent=first?'Arma tu plan':'Ajustar tu plan';
-  $('setupLead').textContent=first?'Elige tus fechas y los días en que puedes estudiar. El plan se reparte solo y termina seis días antes del examen.':'Cambia tus fechas o tus días de estudio. Tu avance se mantiene: solo se mueven las fechas de las tareas.';
+  $('setupLead').textContent=first?'Elige tus fechas y los días en que puedes estudiar. El plan se reparte solo hasta el último día que elijas.':'Cambia tus fechas o tus días de estudio. Tu avance se mantiene: solo se mueven las fechas de las tareas.';
   $('sCancel').hidden=first;
   $('sGo').textContent=first?'Generar mi plan':'Guardar y regenerar';
   $('sName').value=draft.name||''; $('sStart').value=draft.start; $('sExam').value=draft.exam;
@@ -506,6 +568,7 @@ function drawSetup(){
   $('sDays').innerHTML=[1,2,3,4,5,6,0].map(n=>`<button type="button" class="wd-b" data-sd="${n}" aria-pressed="${draft.days.includes(n)}">${DOWS[n]}</button>`).join('');
   const rec=$('sRec'); const opts=[[ '', 'Sin día de recuperación' ],...[0,6,5,4,3,2,1].filter(n=>!draft.days.includes(n)).map(n=>[String(n),DOW[n].charAt(0).toUpperCase()+DOW[n].slice(1)])];
   if(draft.recovery!==null&&draft.days.includes(draft.recovery))draft.recovery=null;
+  $('sOff').innerHTML=OFFS.map(([v,l])=>`<option value="${v}" ${Number(draft.lastOff)===v?'selected':''}>${l}</option>`).join('');
   rec.innerHTML=opts.map(([v,l])=>`<option value="${v}" ${String(draft.recovery===null?'':draft.recovery)===v?'selected':''}>${l}</option>`).join('');
   $('sBreaks').innerHTML=draft.breaks.map((b,i)=>`<div class="brkrow"><div><label class="fl" style="margin-top:0">Desde</label><input class="in" type="date" data-bi="${i}" data-bf="from" value="${esc(b.from)}"></div><div><label class="fl" style="margin-top:0">Hasta</label><input class="in" type="date" data-bi="${i}" data-bf="to" value="${esc(b.to)}"></div><div class="lab"><input class="in" placeholder="Motivo (opcional)" maxlength="40" data-bi="${i}" data-bf="label" value="${esc(b.label||'')}"></div><div class="lab"><button type="button" class="btn ghost sm" data-brm="${i}">Quitar pausa</button></div></div>`).join('');
   updateSummary();
@@ -525,19 +588,24 @@ function updateSummary(){
   const r=buildPlan(cfg);
   if(!r.ok){
     el.className='msg bad';
-    el.textContent=`Con estas fechas tienes ${r.avail} días de estudio y el plan necesita al menos ${r.need}. Empieza antes, suma más días de la semana o quita pausas.`;
+    el.textContent=`Con estas fechas tienes ${r.avail} días de estudio y se necesitan al menos ${r.need}. Empieza antes, suma más días de la semana, quita pausas o estudia hasta más cerca del examen.`;
     go.disabled=true;return;
   }
-  const last=fk(addD(pd(cfg.exam),-6));
-  let t=`Tienes ${r.avail} días de estudio disponibles y el plan usa ${r.avail-r.slack}. Estudias hasta el ${longD(last)} y descansas los 5 días antes del examen.`;
+  const last=fk(addD(pd(cfg.exam),-cfg.lastOff));
+  if(r.reduced){
+    el.className='msg warn';
+    el.textContent=`Tienes ${r.avail} días de estudio, así que te armamos un plan reducido: ${r.sessions} de las ${r.totalSessions} sesiones (las con más preguntas de examen, repartidas entre los 6 ramos), ${r.sims} simulacro${r.sims>1?'s':''} y repaso final. ${untilTxt(last,cfg.lastOff)} El resto del material sigue en la carpeta de estudio.`;
+    go.disabled=false;return;
+  }
+  let t=`Tienes ${r.avail} días de estudio disponibles y el plan usa ${r.avail-r.slack}. ${untilTxt(last,cfg.lastOff)}`;
   if(r.merged>0)t+=' Para que quepa, agrupamos algunas sesiones en días más largos (hasta 7,5 horas).';
   if(r.slack>0)t+=` Te sobran ${r.slack} días de margen.`;
   el.className='msg '+(r.merged>0?'warn':'ok'); el.textContent=t; go.disabled=false;
 }
-function gatherDraft(){if(!draft)return;draft.name=$('sName').value.trim();draft.start=$('sStart').value;draft.exam=$('sExam').value;const rv=$('sRec').value;draft.recovery=rv===''?null:Number(rv);}
+function gatherDraft(){if(!draft)return;draft.name=$('sName').value.trim();draft.start=$('sStart').value;draft.exam=$('sExam').value;const rv=$('sRec').value;draft.recovery=rv===''?null:Number(rv);draft.lastOff=Number($('sOff').value);}
 document.addEventListener('input',ev=>{
   const t=ev.target;
-  if(t.id==='sName'||t.id==='sStart'||t.id==='sExam'||t.id==='sRec'){gatherDraft();updateSummary();return;}
+  if(t.id==='sName'||t.id==='sStart'||t.id==='sExam'||t.id==='sRec'||t.id==='sOff'){gatherDraft();updateSummary();return;}
   if(t.dataset&&t.dataset.bi!==undefined){draft.breaks[+t.dataset.bi][t.dataset.bf]=t.value;updateSummary();}
 });
 async function finishSetup(){

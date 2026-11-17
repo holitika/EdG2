@@ -9,7 +9,8 @@ function cleanConfig(c) {
   const days = Array.isArray(c.days) ? c.days.filter(n => Number.isInteger(n) && n >= 0 && n <= 6) : [1, 2, 3, 4, 5];
   const breaks = Array.isArray(c.breaks) ? c.breaks.filter(b => b && isDate(b.from) && isDate(b.to)).slice(0, 12).map(b => ({ from: b.from, to: b.to, label: String(b.label || '').slice(0, 40) })) : [];
   const rec = Number.isInteger(c.recovery) && c.recovery >= 0 && c.recovery <= 6 && !days.includes(c.recovery) ? c.recovery : null;
-  return { start: c.start, exam: c.exam, days: [...new Set(days)], breaks, recovery: rec, name: String(c.name || '').slice(0, 40) };
+  const lo = Number.isInteger(c.lastOff) && c.lastOff >= 0 && c.lastOff <= 6 ? c.lastOff : 6;
+  return { start: c.start, exam: c.exam, days: [...new Set(days)], breaks, recovery: rec, name: String(c.name || '').slice(0, 40), lastOff: lo };
 }
 function cleanMap(m) {
   if (!m || typeof m !== 'object' || Array.isArray(m)) return null;

@@ -33,7 +33,7 @@
   <div class="card">
     <div class="eyebrow" id="setupEyebrow">Paso único</div>
     <h1 id="setupTitle">Arma tu plan</h1>
-    <p id="setupLead">Elige tus fechas y los días en que puedes estudiar. El plan se reparte solo y termina seis días antes del examen.</p>
+    <p id="setupLead">Elige tus fechas y los días en que puedes estudiar. El plan se reparte solo hasta el último día que elijas.</p>
     <label class="fl" for="sName">Tu nombre (opcional)</label>
     <input class="in" id="sName" maxlength="40" placeholder="Para el saludo de la cabecera">
     <div class="row2">
@@ -42,6 +42,8 @@
     </div>
     <label class="fl">Días de la semana en que estudias</label>
     <div class="wdays" id="sDays" role="group" aria-label="Días de estudio"></div>
+    <label class="fl" for="sOff">Último día de estudio</label>
+    <select class="in" id="sOff"></select>
     <label class="fl" for="sRec">Día de recuperación</label>
     <select class="in" id="sRec"></select>
     <label class="fl">Pausas (pruebas, viajes, semanas sin estudio)</label>
