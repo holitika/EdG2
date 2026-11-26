@@ -27,9 +27,9 @@ module.exports = async (req, res) => {
         return {
           code, active: rec.active !== false, note: rec.note || '', created: rec.created || '', firstUse: rec.firstUse || '',
           devices: devs.length, max: MAX_DEVICES, lastSeen,
-          devList: devs.map(d => ({ id: String(d.id).slice(0, 6), label: d.label || '?', first: d.first || '', last: d.last || '' })),
+          devList: devs.map(d => ({ id: String(d.id).slice(0, 6), fid: String(d.id), label: d.label || '?', first: d.first || '', last: d.last || '' })),
           blocked: rec.blocked || 0, blockedLog: Array.isArray(rec.blockedLog) ? rec.blockedLog : [],
-          resets: rec.resets || 0, lastReset: rec.lastReset || '',
+          resets: rec.resets || 0, lastReset: rec.lastReset || '', kicks: rec.kicks || 0,
           downloads: rec.downloads || 0, downloadLog: Array.isArray(rec.downloadLog) ? rec.downloadLog : [],
         };
       }));
@@ -42,6 +42,21 @@ module.exports = async (req, res) => {
       const rec = await readJSON('codes/' + code + '.json');
       if (!rec) return send(res, 404, { error: 'not_found' });
       rec.active = b.action === 'restore';
+      await writeJSON('codes/' + code + '.json', rec);
+      return send(res, 200, { ok: true });
+    }
+    if (b.action === 'kick_device') {
+      const code = normCode(b.code);
+      if (!code) return send(res, 400, { error: 'bad_code' });
+      const rec = await readJSON('codes/' + code + '.json');
+      if (!rec) return send(res, 404, { error: 'not_found' });
+      const dev = String(b.device || '');
+      const devs = Array.isArray(rec.devices) ? rec.devices : [];
+      if (!devs.some(d => d.id === dev)) return send(res, 404, { error: 'device_not_found' });
+      rec.devices = devs.filter(d => d.id !== dev);
+      rec.kicked = (Array.isArray(rec.kicked) ? rec.kicked : []).concat(dev).slice(-50);
+      rec.kicks = (rec.kicks || 0) + 1;
+      rec.lastKick = new Date().toISOString();
       await writeJSON('codes/' + code + '.json', rec);
       return send(res, 200, { ok: true });
     }

@@ -65,6 +65,7 @@ async function authorize(raw, device, opts) {
   const dev = String(device || '');
   if (!/^[A-Za-z0-9-]{8,64}$/.test(dev)) return { err: 'bad_device' };
   rec.devices = Array.isArray(rec.devices) ? rec.devices : [];
+  if (Array.isArray(rec.kicked) && rec.kicked.includes(dev)) return { err: 'session_closed' };
   const now = new Date().toISOString();
   const label = opts.req ? uaLabel(opts.req) : '';
   const known = rec.devices.find(x => x.id === dev);
@@ -88,7 +89,7 @@ async function authorize(raw, device, opts) {
   }
   return { code, rec, label, device: dev };
 }
-const ERR_STATUS = { invalid_code: 401, device_limit: 403, bad_device: 400 };
+const ERR_STATUS = { invalid_code: 401, session_closed: 401, device_limit: 403, bad_device: 400 };
 function sendErr(res, err, extra) {
   send(res, ERR_STATUS[err] || 400, Object.assign({ error: err }, extra || {}));
 }

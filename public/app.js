@@ -219,6 +219,7 @@ async function flush(k){
     try{
       const body={code:CODE}; body[k]=k==='config'?CFG:state[k];
       const r=await api('/api/save',body);
+      if(await isKicked(r)){kicked();break;}
       if(r.status===401||r.status===403){authLost=true;break;}
       if(!r.ok)throw new Error('http '+r.status);
       saveErr=false;
@@ -619,15 +620,28 @@ async function finishSetup(){
 }
 
 /* ---------- Acceso ---------- */
+function kicked(){
+  lsDel(LSK); lsDel(LSS); lsDel(LSDEV); CODE=null; T=null; CFG=null; mode='loading'; authLost=false;
+  $('codeIn').value='';
+  showGate('Se cerró la sesión de tu código en este dispositivo. Para seguir, escribe tu código de nuevo. Tu avance quedó guardado.','warn');
+}
+async function isKicked(r){
+  if(r.status!==401)return false;
+  try{const j=await r.clone().json();return !!(j&&j.error==='session_closed');}catch(_){return false;}
+}
 function showGate(msg,cls){
   show('gate');
   $('gateMsg').innerHTML=msg?`<div class="msg ${cls||'bad'}">${esc(msg)}</div>`:'';
   $('gateBtn').disabled=false; $('gateBtn').textContent='Entrar';
 }
-async function login(code,auto){
+async function login(code,auto,retry){
   $('gateBtn').disabled=true; $('gateBtn').textContent='Entrando…';
   try{
     const r=await api('/api/session',{code});
+    if(await isKicked(r)){
+      if(auto){kicked();return;}
+      lsDel(LSDEV); if(!retry)return login(code,false,true);
+    }
     if(r.status===401){
       lsDel(LSK); lsDel(LSS);
       showGate(auto?'Tu código ya no es válido. Escríbelo de nuevo o pide uno nuevo.':'Ese código no es válido. Revisa que esté bien escrito.');
@@ -674,6 +688,7 @@ async function refreshFromCloud(){
   if(mode!=='cloud'||!CODE||[...SAVEKEYS,'config'].some(busy)||editing||openKey)return;
   try{
     const r=await api('/api/session',{code:CODE});
+    if(await isKicked(r)){kicked();return;}
     if(r.status===401||r.status===403){authLost=true;updateSave();return;}
     if(!r.ok)return;
     const d=await r.json();
